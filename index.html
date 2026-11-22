@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jadwalin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+    <!-- Muat Supabase dari CDN sebelum script.js menggunakannya. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="./script.js"></script>
+  </head>
+  <body>
+    <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 5 5L19 7"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>
+      </symbol>
+      <symbol id="icon-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="icon-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="icon-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10m-7 6h4"/></symbol>
+      <symbol id="icon-edit" viewBox="0 0 24 24">
+        <path d="m14.5 5.5 4 4M5 15l-1 5 5-1L20 8a2.8 2.8 0 0 0-4-4L5 15Z"/>
+      </symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24">
+        <path d="M3 6h18M9 6V3h6v3M5 6l1 14h12l1-14M10 10v6m4-6v6"/>
+      </symbol>
+      <symbol id="icon-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+      <symbol id="icon-timeline" viewBox="0 0 24 24"><path d="M3 6h11M8 12h13M3 18h11"/></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></symbol>
+      <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M10 4H5v16h5m5-13 5 5-5 5m-6-5h11"/></symbol>
+      <symbol id="icon-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9m-9 4h4"/></symbol>
+      <symbol id="icon-restore" viewBox="0 0 24 24"><path d="M8 6 4 10l4 4m-4-4h10a5 5 0 0 1 0 10h-2"/></symbol>
+    </svg>
+
+    <p id="startup-state" class="startup-state" role="status">Memeriksa sesi…</p>
+    <main id="auth-page" class="auth-page" hidden>
+      <div class="auth-art" aria-hidden="true">
+        <div class="brand"><span class="logo"><svg class="icon"><use href="#icon-check"/></svg></span> Jadwalin</div>
+        <div class="auth-illustration"><span></span><span></span><span></span></div>
+      </div>
+      <section class="auth-panel" aria-labelledby="auth-heading">
+        <h1 id="auth-heading">Masuk</h1>
+        <p class="auth-intro" id="auth-intro">Atur task, deadline, dan jadwalmu dalam satu tempat.</p>
+        <form id="auth-form">
+          <fieldset id="auth-fields" class="auth-fields">
+            <div id="auth-name-field" class="field" hidden>
+              <label for="auth-name">Nama</label>
+              <input id="auth-name" name="displayName" type="text" autocomplete="name" maxlength="70" disabled>
+            </div>
+            <div class="field">
+              <label for="auth-email">Email</label>
+              <input id="auth-email" name="email" type="email" autocomplete="email" required>
+            </div>
+            <div class="field">
+              <label for="auth-password">Kata sandi</label>
+              <input id="auth-password" name="password" type="password" autocomplete="current-password" required>
+              <span id="auth-password-hint" class="auth-hint" hidden>Minimal 8 karakter.</span>
+            </div>
+            <button id="auth-submit" class="primary-button" type="submit">Masuk</button>
+          </fieldset>
+          <p id="auth-error" class="field-error auth-message" role="alert" hidden></p>
+          <p id="auth-notice" class="auth-message" role="status" hidden></p>
+        </form>
+        <p class="auth-switch"><span id="auth-switch-text">Belum punya akun?</span> <button id="auth-toggle" class="text-button" type="button">Daftar</button></p>
+      </section>
+    </main>
+
+    <div id="workspace" class="workspace" hidden>
+      <aside class="sidebar" aria-label="Bilah samping">
+        <div class="brand"><span class="logo"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg></span> Jadwalin</div>
+        <nav class="sidebar-nav" aria-label="Ruang kerja">
+          <button type="button" data-view="timeline"><svg class="icon" aria-hidden="true"><use href="#icon-timeline"/></svg> Timeline</button>
+          <button type="button" data-view="list"><svg class="icon" aria-hidden="true"><use href="#icon-list"/></svg> Daftar task</button>
+          <button type="button" data-view="calendar"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg> Kalender</button>
+          <button type="button" data-view="archive"><svg class="icon" aria-hidden="true"><use href="#icon-archive"/></svg> Arsip</button>
+        </nav>
+        <div class="sidebar-account">
+          <span id="account-avatar" class="account-avatar" aria-hidden="true"></span>
+          <div class="account-details"><strong id="account-name"></strong><span id="account-email"></span></div>
+        </div>
+        <button id="logout" class="secondary-button logout-button" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-logout"/></svg> Keluar</button>
+      </aside>
+
+      <main class="project-main">
+        <header class="project-header">
+          <span class="project-icon"><svg class="icon" aria-hidden="true"><use href="#icon-list"/></svg></span>
+          <div class="project-title"><h1>Task saya</h1><time id="header-date" class="header-date"></time></div>
+          <div id="completion-summary" class="completion-summary" hidden>
+            <div class="completion-caption">
+              <label for="completion-bar" class="visually-hidden">Progres penyelesaian</label>
+              <span id="completion-count"></span>
+            </div>
+            <progress id="completion-bar" max="1" value="0" aria-describedby="completion-count"></progress>
+          </div>
+          <label class="search-control">
+            <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+            <span class="visually-hidden">Cari task</span>
+            <input id="search-task" type="search" placeholder="Cari task">
+          </label>
+        </header>
+
+        <div class="view-toolbar">
+          <nav class="view-tabs" aria-label="Tampilan task">
+            <button type="button" data-view="list">Daftar</button>
+            <button type="button" data-view="timeline">Timeline</button>
+            <button type="button" data-view="calendar">Kalender</button>
+            <button type="button" data-view="archive">Arsip</button>
+          </nav>
+          <button id="open-add" class="primary-button" type="button" disabled>
+            <svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg> Tambah task
+          </button>
+        </div>
+
+        <div id="request-error" class="panel request-error" hidden>
+          <p id="request-error-text" role="alert"></p>
+          <button id="retry-button" class="secondary-button" type="button" hidden>Coba lagi</button>
+        </div>
+        <p id="save-status" class="save-status" role="status"></p>
+
+        <section id="timeline-view" class="timeline-view" aria-labelledby="timeline-range">
+          <div class="timeline-toolbar">
+            <h2 id="timeline-range" aria-live="polite"></h2>
+            <div class="timeline-legend" aria-label="Warna status">
+              <span class="status-todo">To Do</span><span class="status-progress">In Progress</span><span class="status-done">Done</span>
+            </div>
+            <button id="timeline-today" class="secondary-button" type="button">Hari ini</button>
+          </div>
+          <div class="timeline-header">
+            <button id="timeline-back" class="icon-button" type="button" aria-label="Periode sebelumnya"><svg class="icon" aria-hidden="true"><use href="#icon-left"/></svg></button>
+            <div id="timeline-days" class="timeline-days"></div>
+            <button id="timeline-next" class="icon-button" type="button" aria-label="Periode berikutnya"><svg class="icon" aria-hidden="true"><use href="#icon-right"/></svg></button>
+          </div>
+          <div class="timeline-sheet">
+            <p id="timeline-state" class="timeline-state" role="status">Memuat…</p>
+            <ul id="timeline-rows" class="timeline-rows" aria-label="Task berdasarkan deadline"></ul>
+          </div>
+        </section>
+
+        <section id="list-view" class="task-column" aria-label="Daftar task" hidden>
+          <div class="filter-bar">
+            <div id="status-filters" class="status-filters" role="group" aria-label="Filter status">
+              <button type="button" class="filter-button" data-status="all" aria-pressed="true">All <span class="filter-count">0</span></button>
+              <button type="button" class="filter-button" data-status="todo" aria-pressed="false">To Do <span class="filter-count">0</span></button>
+              <button type="button" class="filter-button" data-status="progress" aria-pressed="false">In Progress <span class="filter-count">0</span></button>
+              <button type="button" class="filter-button" data-status="done" aria-pressed="false">Done <span class="filter-count">0</span></button>
+            </div>
+            <div class="priority-filter-control">
+              <label for="priority-filter" class="visually-hidden">Filter prioritas</label>
+              <svg class="icon" aria-hidden="true"><use href="#icon-filter"/></svg>
+              <select id="priority-filter" class="priority-filter">
+                <option value="all">Semua prioritas</option>
+                <option value="high">Prioritas Tinggi</option>
+                <option value="medium">Prioritas Sedang</option>
+                <option value="low">Prioritas Rendah</option>
+              </select>
+            </div>
+          </div>
+          <p id="task-state" class="panel empty-state" role="status">Memuat...</p>
+          <ul id="task-list" class="task-list" aria-busy="true"></ul>
+        </section>
+
+        <section id="archive-view" class="task-column" aria-labelledby="archive-heading" hidden>
+          <h2 id="archive-heading">Arsip task</h2>
+          <p id="archive-state" class="panel empty-state" role="status">Memuat...</p>
+          <ul id="archive-list" class="task-list" aria-busy="true"></ul>
+        </section>
+
+        <section id="calendar-view" class="calendar-column" aria-label="Kalender deadline" hidden>
+          <section class="panel calendar-panel" aria-labelledby="calendar-month">
+            <div class="calendar-header">
+              <button id="previous-month" class="icon-button" type="button" aria-label="Bulan sebelumnya"><svg class="icon" aria-hidden="true"><use href="#icon-left"/></svg></button>
+              <h2 id="calendar-month" aria-live="polite"></h2>
+              <button id="next-month" class="icon-button" type="button" aria-label="Bulan berikutnya"><svg class="icon" aria-hidden="true"><use href="#icon-right"/></svg></button>
+            </div>
+            <div class="calendar-grid weekdays" aria-hidden="true">
+              <span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span><span>Min</span>
+            </div>
+            <div id="calendar-days" class="calendar-grid calendar-days" role="group" aria-label="Tanggal kalender"></div>
+            <div class="calendar-legend">
+              <span>Titik deadline</span>
+              <span><i class="deadline-dot priority-high" aria-hidden="true"></i>Tinggi</span>
+              <span><i class="deadline-dot priority-medium" aria-hidden="true"></i>Sedang</span>
+              <span><i class="deadline-dot priority-low" aria-hidden="true"></i>Rendah</span>
+            </div>
+          </section>
+          <section class="panel day-panel" aria-labelledby="selected-date">
+            <div class="day-panel-heading">
+              <h2 id="selected-date"></h2>
+              <p id="day-task-count" class="day-task-count" role="status">Memuat...</p>
+            </div>
+            <ul id="day-task-list" class="day-task-list"></ul>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="add-dialog" aria-labelledby="add-heading">
+      <h2 id="add-heading">Tambah task baru</h2>
+      <form id="add-form" aria-labelledby="add-heading" novalidate>
+        <fieldset id="add-fields" class="edit-fields" disabled>
+          <div class="field">
+            <label for="task-title">Judul task</label>
+            <input id="task-title" name="title" type="text" placeholder="Contoh: Cek SQL" required minlength="3" aria-describedby="title-error" autofocus>
+            <p id="title-error" class="field-error" role="alert" hidden></p>
+          </div>
+          <div class="field">
+            <label for="task-description">Deskripsi</label>
+            <textarea id="task-description" name="description" placeholder="Masukkan deskripsi task (opsional)" rows="3" aria-describedby="description-error"></textarea>
+            <p id="description-error" class="field-error" role="alert" hidden></p>
+          </div>
+          <div class="field">
+            <label for="task-priority">Prioritas</label>
+            <select id="task-priority" name="priority">
+              <option value="medium">Sedang</option><option value="high">Tinggi</option><option value="low">Rendah</option>
+            </select>
+          </div>
+          <div class="deadline-fields">
+            <div class="field">
+              <label for="task-deadline">Tanggal deadline</label>
+              <input id="task-deadline" name="deadline" type="date" aria-describedby="deadline-error">
+              <p id="deadline-error" class="field-error" role="alert" hidden></p>
+            </div>
+            <div class="field">
+              <label for="task-deadline-time">Jam (opsional)</label>
+              <input id="task-deadline-time" name="deadline_time" type="time" aria-describedby="deadline-time-error">
+              <p id="deadline-time-error" class="field-error" role="alert" hidden></p>
+            </div>
+          </div>
+          <p id="add-request-error" class="field-error" role="alert" hidden></p>
+          <div class="dialog-actions">
+            <button id="cancel-add" class="secondary-button" type="button">Batal</button>
+            <button id="save-add" class="primary-button" type="submit">Tambah</button>
+          </div>
+        </fieldset>
+      </form>
+    </dialog>
+
+    <dialog id="edit-dialog" aria-labelledby="edit-heading">
+      <h2 id="edit-heading">Edit task</h2>
+      <form id="edit-form" novalidate>
+        <fieldset id="edit-fields" class="edit-fields">
+          <div class="field">
+            <label for="edit-title">Judul task</label>
+            <input id="edit-title" name="title" type="text" required minlength="3" aria-describedby="edit-title-error" autofocus>
+            <p id="edit-title-error" class="field-error" role="alert" hidden></p>
+          </div>
+          <div class="field">
+            <label for="edit-description">Deskripsi</label>
+            <textarea id="edit-description" name="description" placeholder="Masukkan deskripsi task (opsional)" rows="3" aria-describedby="edit-description-error"></textarea>
+            <p id="edit-description-error" class="field-error" role="alert" hidden></p>
+          </div>
+          <div class="field">
+            <label for="edit-priority">Prioritas</label>
+            <select id="edit-priority" name="priority">
+              <option value="medium">Sedang</option>
+              <option value="high">Tinggi</option>
+              <option value="low">Rendah</option>
+            </select>
+          </div>
+          <div class="deadline-fields">
+            <div class="field">
+              <label for="edit-deadline">Tanggal deadline</label>
+              <input id="edit-deadline" name="deadline" type="date" aria-describedby="edit-deadline-error">
+              <p id="edit-deadline-error" class="field-error" role="alert" hidden></p>
+            </div>
+            <div class="field">
+              <label for="edit-deadline-time">Jam (opsional)</label>
+              <input id="edit-deadline-time" name="deadline_time" type="time" aria-describedby="edit-deadline-time-error">
+              <p id="edit-deadline-time-error" class="field-error" role="alert" hidden></p>
+            </div>
+          </div>
+          <p id="edit-request-error" class="field-error" role="alert" hidden></p>
+          <div class="dialog-actions">
+            <button id="cancel-edit" class="secondary-button" type="button">Batal</button>
+            <button id="save-edit" class="primary-button" type="submit">Simpan</button>
+          </div>
+        </fieldset>
+      </form>
+    </dialog>
+
+    <!-- JavaScript menyalin template ini untuk setiap kartu task. -->
+    <template id="task-template">
+      <li class="panel task-card">
+        <div class="task-details">
+          <h3 class="task-title"></h3>
+          <div class="task-info">
+            <span class="priority-text"></span>
+            <span class="task-deadline" hidden>
+              <svg class="icon" aria-hidden="true"><use href="#icon-calendar"/></svg>
+              <time></time>
+            </span>
+            <span class="deadline-badge" hidden></span>
+            <span class="archived-date" hidden>Diarsipkan <time></time></span>
+          </div>
+          <p class="task-description" hidden></p>
+        </div>
+        <div class="task-actions">
+          <div class="status-control">
+            <select class="status-select" data-task-action aria-label="Ubah status">
+              <option value="todo">To Do</option>
+              <option value="progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+            <svg class="icon" aria-hidden="true"><use href="#icon-down"/></svg>
+          </div>
+          <span class="status-badge archived-status" hidden></span>
+          <div class="task-tools">
+            <button type="button" class="icon-button edit-button" data-task-action aria-label="Edit task">
+              <svg class="icon" aria-hidden="true"><use href="#icon-edit"/></svg>
+            </button>
+            <button type="button" class="icon-button archive-button" data-task-action aria-label="Arsipkan task" title="Arsipkan task">
+              <svg class="icon" aria-hidden="true"><use href="#icon-archive"/></svg>
+            </button>
+            <button type="button" class="secondary-button restore-button" data-task-action hidden>
+              <svg class="icon" aria-hidden="true"><use href="#icon-restore"/></svg> Pulihkan
+            </button>
+            <button type="button" class="icon-button delete-button" data-task-action aria-label="Hapus task">
+              <svg class="icon" aria-hidden="true"><use href="#icon-trash"/></svg>
+            </button>
+          </div>
+        </div>
+      </li>
+    </template>
+  </body>
+</html>

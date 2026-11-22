@@ -1,0 +1,64 @@
+# ============================================
+# .gitignore — file/folder yang TIDAK di-push ke GitHub
+# ============================================
+
+# --- Dependensi (hasil npm install) ---
+# Berisi ribuan file pihak ketiga. Cukup push package.json saja.
+node_modules/
+
+# --- File rahasia / environment ---
+# Jangan pernah commit kata sandi, token, atau kredensial asli.
+.env
+.env.*
+!.env.example
+
+# --- Kredensial Supabase (OPSIONAL) ---
+# config.js berisi SUPABASE_URL dan anon key (sb_publishable_...).
+# Anon key memang dirancang untuk dipakai di browser dan dilindungi RLS,
+# jadi aman di-commit. Namun JIKA kamu ingin menyembunyikannya:
+#   1. Hapus tanda # pada baris "config.js" di bawah
+#   2. Buat config.example.js berisi placeholder, lalu commit file itu
+#   3. Orang yang clone menyalin config.example.js -> config.js dan mengisi sendiri
+# config.js
+
+# --- Log ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- File sistem operasi ---
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+desktop.ini
+
+# --- Editor / IDE (preferensi lokal, bukan kode aplikasi) ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Hasil build & coverage (tidak dipakai di project ini, tapi antisipasi) ---
+dist/
+build/
+out/
+coverage/
+.nyc_output/
+
+# --- Cache ---
+.npm/
+.cache/
+*.tsbuildinfo
+
+# --- File sementara ---
+*.tmp
+*.temp
+*.bak
