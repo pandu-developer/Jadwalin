@@ -477,6 +477,36 @@ function autoCompleteOverdueTasks() {
   );
 }
 
+/**
+ * AUTO-SELESAI — Menarik ulang status task dari database tanpa menampilkan loading.
+ * Perlu karena pg_cron dapat mengubah status saat browser tetap terbuka; tanpa ini
+ * array `tasks` (dan badge "Terlambat") masih memakai status lama sampai reload.
+ * Hanya status & arsip yang disalin supaya field lokal lain tidak tertimpa.
+ */
+async function syncTaskStatuses() {
+  if (!userId || !hasLoaded || isLoading || isSaving) return;
+  const requestVersion = sessionVersion;
+
+  const { data, error } = await client.from("tasks")
+    .select("id, status, archived_at")
+    .eq("user_id", userId);
+
+  if (requestVersion !== sessionVersion || error || !data) return;
+
+  const remote = new Map(data.map((row) => [row.id, row]));
+  const changed = tasks.some((task) => {
+    const row = remote.get(task.id);
+    return row && (row.status !== task.status || Boolean(row.archived_at) !== Boolean(task.archived_at));
+  });
+  if (!changed) return;
+
+  tasks = tasks.map((task) => {
+    const row = remote.get(task.id);
+    return row ? { ...task, status: row.status, archived_at: row.archived_at } : task;
+  });
+  renderDashboard();
+}
+
 function createTaskCard(task) {
   // Salin template untuk setiap task. Isi judul lewat textContent agar input dibaca sebagai teks biasa.
   const card = taskTemplate.content.firstElementChild.cloneNode(true);
@@ -1027,6 +1057,8 @@ function refreshClock() {
   }
   // Task yang sudah terlambat otomatis ditandai selesai.
   autoCompleteOverdueTasks();
+  // pg_cron bisa mengubah status saat web tetap terbuka; segarkan status agar badge ikut benar.
+  syncTaskStatuses();
 }
 
 window.addEventListener("focus", refreshClock);

@@ -125,6 +125,6 @@ File seperti `node_modules/`, `.env`, log, dan file sistem tidak akan ikut ter-p
 Auto-selesai bekerja berlapis:
 
 - **Database (`cron.sql`)** → sumber kebenaran, jalan 24/7 tiap menit walaupun browser tertutup.
-- **Klien (`script.js`)** → pengecekan instan tiap 15 detik / saat jendela difokuskan, supaya perubahan langsung terlihat tanpa menunggu job berikutnya.
+- **Klien (`script.js`)** → pengecekan instan tiap 15 detik / saat jendela difokuskan, supaya perubahan langsung terlihat tanpa menunggu job berikutnya. Klien juga menarik ulang status dari database pada jeda yang sama, sehingga perubahan `pg_cron` langsung tercermin tanpa refresh halaman (badge "Terlambat" ikut hilang begitu task berstatus **Done**).
 
 Keduanya memakai aturan deadline yang sama, jadi tidak akan saling bertentangan. Cukup jalankan `cron.sql` sekali di Supabase; tidak perlu Edge Function atau server tambahan.
