@@ -11,7 +11,7 @@
 - **Daftar task** — Filter status (All / To Do / In Progress / Done) dan prioritas (Tinggi / Sedang / Rendah), plus pencarian judul.
 - **Kalender** — Tampilan bulanan dengan titik warna sesuai prioritas; klik tanggal untuk melihat task + deskripsinya.
 - **Arsip** — Arsipkan task, pulihkan, atau hapus permanen.
-- **Deskripsi** — Setiap task bisa punya catatan tambahan (opsional), tampil di bawah judul.
+- **Deskripsi** — Setiap task wajib punya catatan tambahan, tampil di bawah judul.
 - **Deadline & jam** — Badge "Hari ini" / "Terlambat" diperbarui otomatis. Badge "Terlambat" **tetap tampil** walau status sudah **Done**, sebagai penanda task diselesaikan setelah deadline.
 - **Auto-selesai 24/7** — Task terlambat otomatis berubah menjadi **Done** lewat job `pg_cron` di Supabase, **walau web tidak dibuka**. Klien juga mengecek tiap 15 detik sebagai respons cepat saat aplikasi aktif. Keduanya memakai aturan yang sama.
 - **Progres** — Progress bar menghitung task aktif yang sudah selesai.

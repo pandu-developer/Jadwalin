@@ -4,10 +4,11 @@ begin;
 create table if not exists public.tasks (
   id bigint generated always as identity primary key,
   title text not null check (char_length(btrim(title)) >= 3),
-  description text,
+  description text not null,
   status text not null default 'todo' check (status in ('todo', 'progress', 'done')),
   priority text not null default 'medium' check (priority in ('low', 'medium', 'high')),
-  deadline date,
+  deadline date not null,
+  deadline_time time(0) not null,
   created_at timestamp not null default now()
 );
 
@@ -21,11 +22,11 @@ create index if not exists tasks_user_id_idx on public.tasks (user_id);
 -- NULL berarti task masih aktif. Task lama tetap aktif setelah kolom ini ditambahkan.
 alter table public.tasks add column if not exists archived_at timestamptz;
 
--- Jam opsional memakai tanggal deadline yang sudah ada. Task lama tetap berlaku seharian.
+-- Jam sekarang wajib diisi dan terikat pada tanggal deadline.
 alter table public.tasks add column if not exists deadline_time time(0)
   check (deadline_time is null or deadline is not null);
 
--- Deskripsi task opsional.
+-- Deskripsi task wajib diisi.
 alter table public.tasks add column if not exists description text;
 
 drop policy if exists "Anon dapat membaca task" on public.tasks;

@@ -3,6 +3,10 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./config.js";
 const STATUS_LABELS = { todo: "To Do", progress: "In Progress", done: "Done" };
 const PRIORITY_LABELS = { low: "Rendah", medium: "Sedang", high: "Tinggi" };
 const PRIORITY_ORDER = { low: 1, medium: 2, high: 3 };
+const MONTH_NAMES_FULL = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
 const TASK_COLUMNS =
   "id, title, description, status, priority, deadline, deadline_time, created_at, archived_at";
 const PAGE_SIZE = 500;
@@ -45,6 +49,21 @@ const saveAdd = document.getElementById("save-add");
 const addRequestError = document.getElementById("add-request-error");
 const statusFilters = document.querySelectorAll("#status-filters button");
 const priorityFilter = document.getElementById("priority-filter");
+const periodFilters = document.querySelectorAll("[data-period]");
+const monthFilterBar = document.getElementById("month-filter-bar");
+const yearView = document.getElementById("year-view");
+const yearViewTitle = document.getElementById("year-view-title");
+const yearViewCount = document.getElementById("year-view-count");
+const yearViewBack = document.getElementById("year-view-back");
+const yearTaskList = document.getElementById("year-task-list");
+const yearTaskState = document.getElementById("year-task-state");
+const rekapRing = document.getElementById("rekap-ring-value");
+const rekapPercent = document.getElementById("rekap-percent");
+const rekapTotal = document.getElementById("rekap-total");
+const rekapDone = document.getElementById("rekap-done");
+const rekapLate = document.getElementById("rekap-late");
+const rekapHigh = document.getElementById("rekap-high");
+const rekapMonthBars = document.getElementById("rekap-month-bars");
 const taskTemplate = document.getElementById("task-template");
 const taskList = document.getElementById("task-list");
 const taskState = document.getElementById("task-state");
@@ -64,6 +83,14 @@ const calendarHeading = document.getElementById("calendar-month");
 const selectedDateHeading = document.getElementById("selected-date");
 const dayTaskCount = document.getElementById("day-task-count");
 const dayTaskList = document.getElementById("day-task-list");
+const profileDialog = document.getElementById("profile-dialog");
+const profileForm = document.getElementById("profile-form");
+const accountAvatar = document.getElementById("account-avatar");
+const openProfileButton = document.getElementById("open-profile");
+const cancelProfileButton = document.getElementById("cancel-profile");
+const saveProfileButton = document.getElementById("save-profile");
+const profileRequestError = document.getElementById("profile-request-error");
+const profileSuccess = document.getElementById("profile-success");
 
 let client;
 let userId = null;
@@ -71,6 +98,9 @@ let sessionVersion = 0;
 let isRegistering = false;
 // Setiap objek mewakili satu baris Supabase. Daftar dan kalender memakai array yang sama.
 let tasks = [];
+let activePeriod = "all";
+let activeMonth = null; // 0–11, hanya dipakai saat activePeriod === "year".
+let yearDetail = false; // true = tampilkan daftar task bulan terpilih, bukan kartu.
 let activeStatus = "all";
 let editingTaskId = null;
 let isLoading = false;
@@ -146,7 +176,7 @@ function updateControls() {
   saveEdit.textContent = isSaving ? "Menyimpan..." : "Simpan";
   saveStatus.textContent =
     isSaving && !editDialog.open && !addDialog.open ? "Menyimpan..." : "";
-  for (const list of [taskList, archiveList]) {
+  for (const list of [taskList, archiveList, yearTaskList]) {
     list.setAttribute("aria-busy", String(isLoading || isSaving));
     for (const action of list.querySelectorAll("[data-task-action]")) {
       action.disabled = isSaving;
@@ -259,10 +289,20 @@ function validateTitle(title) {
   return "";
 }
 
+function validateDescription(description) {
+  return "";
+}
+
+function validatePriority(priority) {
+  if (!priority) return "Prioritas wajib dipilih.";
+  return "";
+}
+
 function validateDeadline(field, isCreating, now) {
   if (field.validity.badInput) return "Masukkan tanggal yang valid.";
+  if (!field.value) return "Tanggal deadline wajib diisi.";
   // Batas tanggal berlaku saat menambah. Saat edit, deadline lama boleh dipertahankan.
-  if (isCreating && field.value && field.value < getDateKey(now)) {
+  if (isCreating && field.value < getDateKey(now)) {
     return "Deadline tidak boleh sebelum hari ini.";
   }
   return "";
@@ -271,7 +311,7 @@ function validateDeadline(field, isCreating, now) {
 function validateDeadlineTime(field, deadline, isCreating, now) {
   if (field.validity.badInput || field.validity.stepMismatch)
     return "Masukkan jam dan menit yang valid.";
-  if (!field.value) return "";
+  if (!field.value) return "Jam deadline wajib diisi.";
   if (!deadline) return "Isi tanggal deadline terlebih dahulu.";
   if (
     isCreating &&
@@ -286,11 +326,16 @@ function validateDeadlineTime(field, deadline, isCreating, now) {
 function readTaskForm(form, isCreating) {
   const titleField = form.elements.namedItem("title");
   const descriptionField = form.elements.namedItem("description");
+  const priorityField = form.elements.namedItem("priority");
   const deadlineField = form.elements.namedItem("deadline");
   const timeField = form.elements.namedItem("deadline_time");
   const title = titleField.value.trim();
+  const description = descriptionField.value.trim();
+  const priority = priorityField.value;
   const now = new Date();
   const titleError = validateTitle(title);
+  const descriptionError = validateDescription(description);
+  const priorityError = validatePriority(priority);
   const deadlineError = validateDeadline(deadlineField, isCreating, now);
   const timeError = validateDeadlineTime(
     timeField,
@@ -300,10 +345,14 @@ function readTaskForm(form, isCreating) {
   );
 
   showFieldError(titleField, titleError);
+  showFieldError(descriptionField, descriptionError);
+  showFieldError(priorityField, priorityError);
   showFieldError(deadlineField, deadlineError);
   showFieldError(timeField, timeError);
   for (const [field, error] of [
     [titleField, titleError],
+    [descriptionField, descriptionError],
+    [priorityField, priorityError],
     [deadlineField, deadlineError],
     [timeField, timeError],
   ]) {
@@ -315,10 +364,10 @@ function readTaskForm(form, isCreating) {
 
   return {
     title,
-    description: descriptionField.value.trim() || null,
-    priority: form.elements.namedItem("priority").value,
-    deadline: deadlineField.value || null,
-    deadline_time: timeField.value || null,
+    description,
+    priority,
+    deadline: deadlineField.value,
+    deadline_time: timeField.value,
   };
 }
 
@@ -445,6 +494,7 @@ function deleteTask(task) {
 
 function filterTasks(status = activeStatus) {
   // Task harus cocok dengan kedua filter. Pilihan "all" meloloskan kondisi filter tersebut.
+
   const priority = priorityFilter.value;
   return tasks.filter((task) => {
     const matchesStatus = status === "all" || task.status === status;
@@ -453,6 +503,7 @@ function filterTasks(status = activeStatus) {
       isActiveTask(task) &&
       matchesStatus &&
       matchesPriority &&
+      matchesPeriod(task) &&
       matchesSearch(task)
     );
   });
@@ -660,13 +711,14 @@ function renderTaskList(list, state, visibleTasks, emptyMessage) {
 
 function renderTasks() {
   renderStatusFilters();
-  renderTaskList(taskList, taskState, filterTasks(), "Belum ada task");
+  renderTaskList(taskList, taskState, filterTasks(), periodEmptyMessage());
   updateDeadlineBadges();
 }
 
 function renderArchive() {
   const archivedTasks = tasks.filter(
-    (task) => !isActiveTask(task) && matchesSearch(task),
+    (task) =>
+      !isActiveTask(task) && matchesPeriod(task) && matchesSearch(task),
   );
   archivedTasks.sort(
     (first, second) =>
@@ -683,7 +735,13 @@ function groupTasksByDeadline() {
   const groups = new Map();
 
   for (const task of tasks) {
-    if (!isActiveTask(task) || !task.deadline || !matchesSearch(task)) continue;
+    if (
+      !isActiveTask(task) ||
+      !task.deadline ||
+      !matchesPeriod(task) ||
+      !matchesSearch(task)
+    )
+      continue;
     if (!groups.has(task.deadline)) {
       groups.set(task.deadline, { tasks: [], priority: task.priority });
     }
@@ -823,14 +881,137 @@ function changeMonth(step) {
 }
 
 function setView(view) {
-  for (const name of ["list", "timeline", "calendar", "archive"]) {
+  for (const name of ["list", "timeline", "calendar", "archive", "rekap"]) {
     document.getElementById(`${name}-view`).hidden = name !== view;
   }
   for (const button of viewButtons) {
     button.setAttribute("aria-pressed", String(button.dataset.view === view));
   }
-  openAddButton.hidden = view === "archive";
+  openAddButton.hidden = view === "archive" || view === "rekap";
+  workspace.classList.toggle("showing-rekap", view === "rekap");
   searchTask.placeholder = view === "archive" ? "Cari arsip" : "Cari task";
+  if (view === "rekap") renderRekap();
+}
+
+function getPeriodRange(period, now = new Date()) {
+  if (period === "all") return null;
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (period === "today") {
+    const key = getDateKey(today);
+    return [key, key];
+  }
+
+  if (period === "week") {
+    // Senin = awal minggu, sama seperti grid kalender di renderCalendar().
+    const start = shiftDate(today, -((today.getDay() + 6) % 7));
+    return [getDateKey(start), getDateKey(shiftDate(start, 6))];
+  }
+
+  if (period === "month") {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return [getDateKey(start), getDateKey(end)];
+  }
+
+  if (period === "year") {
+    return [`${today.getFullYear()}-01-01`, `${today.getFullYear()}-12-31`];
+  }
+
+  return null;
+}
+
+function matchesPeriod(task) {
+  if (activePeriod === "all") return true;
+  if (!task.deadline) return false;
+
+  const range = getPeriodRange(activePeriod);
+  if (!range) return true;
+  // Format YYYY-MM-DD aman dibandingkan sebagai string (sudah zero-padded).
+  if (task.deadline < range[0] || task.deadline > range[1]) return false;
+
+  // "Tahun ini" + bulan yang dipilih → hanya task di bulan itu.
+  if (activePeriod === "year" && activeMonth !== null) {
+    return Number(task.deadline.slice(5, 7)) - 1 === activeMonth;
+  }
+  return true;
+}
+
+function syncPeriodButtons() {
+  for (const button of periodFilters) {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.period === activePeriod),
+    );
+  }
+  const isYear = activePeriod === "year";
+  monthFilterBar.hidden = !isYear || yearDetail;
+  yearViewBack.hidden = !isYear || !yearDetail;
+  yearTaskList.hidden = !isYear || !yearDetail;
+  yearTaskState.hidden = !isYear || !yearDetail;
+  yearView.hidden = !isYear;
+  workspace.classList.toggle("showing-year", isYear);
+  for (const button of monthFilterBar.querySelectorAll("[data-month]")) {
+    button.setAttribute(
+      "aria-pressed",
+      String(isYear && Number(button.dataset.month) === activeMonth),
+    );
+  }
+  if (isYear) {
+    renderMonthCounts();
+    renderYearView();
+  }
+}
+
+function renderMonthCounts() {
+  const yearPrefix = `${new Date().getFullYear()}-`;
+  const counts = Array(12).fill(0);
+  for (const task of tasks) {
+    if (!isActiveTask(task) || !task.deadline) continue;
+    if (!task.deadline.startsWith(yearPrefix) || !matchesSearch(task)) continue;
+    counts[Number(task.deadline.slice(5, 7)) - 1] += 1;
+  }
+  for (const button of monthFilterBar.querySelectorAll("[data-month]")) {
+    button.querySelector(".month-count").textContent =
+      `${counts[Number(button.dataset.month)]} task`;
+  }
+}
+
+function renderYearView() {
+  if (activePeriod !== "year") return;
+  if (!yearDetail || activeMonth === null) {
+    yearViewTitle.textContent = "Pilih bulan";
+    yearViewCount.textContent = "";
+    return;
+  }
+
+  const monthLabel = MONTH_NAMES_FULL[activeMonth];
+  const yearPrefix = `${new Date().getFullYear()}-`;
+  const monthTasks = tasks.filter(
+    (task) =>
+      isActiveTask(task) &&
+      task.deadline &&
+      task.deadline.startsWith(yearPrefix) &&
+      Number(task.deadline.slice(5, 7)) - 1 === activeMonth &&
+      matchesSearch(task),
+  );
+  monthTasks.sort(compareDeadlines);
+  yearViewTitle.textContent = `Task bulan ${monthLabel}`;
+  yearViewCount.textContent = `${monthTasks.length} task`;
+  renderTaskList(
+    yearTaskList,
+    yearTaskState,
+    monthTasks,
+    `Belum ada task di bulan ${monthLabel}.`,
+  );
+}
+
+function periodEmptyMessage() {
+  if (activePeriod === "all") return "Belum ada task";
+  if (activePeriod === "year" && activeMonth !== null)
+    return "Tidak ada task pada bulan ini.";
+  return "Tidak ada task pada periode ini.";
 }
 
 function matchesSearch(task) {
@@ -904,7 +1085,12 @@ function renderTimeline(today) {
   timelineRows.style.setProperty("--today-index", todayIndex);
 
   const scheduled = tasks.filter((task) => {
-    if (!isActiveTask(task) || !task.deadline || !matchesSearch(task))
+    if (
+      !isActiveTask(task) ||
+      !task.deadline ||
+      !matchesPeriod(task) ||
+      !matchesSearch(task)
+    )
       return false;
     // Task muncul jika deadline-nya atau tanggal dibuat ada dalam periode.
     const startKey = getDateKey(new Date(task.created_at));
@@ -961,16 +1147,93 @@ function renderCompletion() {
   completionCount.textContent = `${completedCount} dari ${activeTasks.length} selesai`;
 }
 
+function renderRekap() {
+  // Sama seperti renderCompletion: jangan timpa angka rekap saat data belum siap.
+  if (!hasLoaded) return;
+  const activeTasks = tasks.filter(isActiveTask);
+  const counts = {
+    todo: activeTasks.filter((task) => task.status === "todo").length,
+    progress: activeTasks.filter((task) => task.status === "progress").length,
+    done: activeTasks.filter((task) => task.status === "done").length,
+    low: activeTasks.filter((task) => task.priority === "low").length,
+    medium: activeTasks.filter((task) => task.priority === "medium").length,
+    high: activeTasks.filter((task) => task.priority === "high").length,
+  };
+  const total = activeTasks.length;
+  const late = activeTasks.filter(isOverdue).length;
+  const percent = total ? Math.round((counts.done / total) * 100) : 0;
+
+  rekapTotal.textContent = total;
+  rekapDone.textContent = counts.done;
+  rekapLate.textContent = late;
+  rekapHigh.textContent = counts.high;
+  rekapPercent.textContent = `${percent}%`;
+
+  const circumference = 2 * Math.PI * 50;
+  rekapRing.style.strokeDasharray = `${circumference}`;
+  rekapRing.style.strokeDashoffset = `${circumference * (1 - percent / 100)}`;
+
+  const statusMax = Math.max(counts.todo, counts.progress, counts.done, 1);
+  const priorityMax = Math.max(counts.low, counts.medium, counts.high, 1);
+  for (const key of ["todo", "progress", "done"]) {
+    document.getElementById(`bar-${key}`).style.width =
+      `${(counts[key] / statusMax) * 100}%`;
+    document.getElementById(`val-${key}`).textContent = counts[key];
+  }
+  for (const key of ["low", "medium", "high"]) {
+    document.getElementById(`bar-${key}`).style.width =
+      `${(counts[key] / priorityMax) * 100}%`;
+    document.getElementById(`val-${key}`).textContent = counts[key];
+  }
+
+  const yearPrefix = `${new Date().getFullYear()}-`;
+  const monthly = Array(12).fill(0);
+  for (const task of activeTasks) {
+    if (task.deadline?.startsWith(yearPrefix)) {
+      monthly[Number(task.deadline.slice(5, 7)) - 1] += 1;
+    }
+  }
+  const monthMax = Math.max(...monthly, 1);
+  const monthLabels = [
+    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+    "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+  ];
+  rekapMonthBars.replaceChildren();
+  monthly.forEach((count, index) => {
+    const item = document.createElement("div");
+    item.className = "month-bar-item";
+    const track = document.createElement("div");
+    track.className = "month-bar-track";
+    const fill = document.createElement("div");
+    fill.className = "month-bar-fill";
+    fill.style.height = `${(count / monthMax) * 100}%`;
+    fill.title = `${count} task`;
+    track.append(fill);
+    const label = document.createElement("span");
+    label.textContent = monthLabels[index];
+    const value = document.createElement("strong");
+    value.textContent = count;
+    item.append(track, label, value);
+    rekapMonthBars.append(item);
+  });
+}
+
 function renderDashboard() {
   const today = getDateKey(new Date());
   headerDate.dateTime = today;
   headerDate.textContent = formatDateKey(today, fullDate);
   addForm.elements.namedItem("deadline").min = today;
   renderCompletion();
+  // Rekap dihitung lebih awal agar tidak terlewat bila render view lain bermasalah.
+  renderRekap();
   renderTasks();
   renderArchive();
   renderSchedule(today);
   renderTimeline(today);
+  if (activePeriod === "year") {
+    renderMonthCounts();
+    renderYearView();
+  }
 }
 
 function showAuthMessage(element, message = "") {
@@ -1079,6 +1342,121 @@ async function signOut() {
   }
 }
 
+function showProfileError(message = "") {
+  profileRequestError.textContent = message;
+  profileRequestError.hidden = !message;
+}
+
+function showProfileSuccess(message = "") {
+  profileSuccess.textContent = message;
+  profileSuccess.hidden = !message;
+}
+
+function showProfileFieldError(field, message) {
+  const errorText = document.getElementById(
+    field.getAttribute("aria-describedby"),
+  );
+  if (!errorText) return;
+  errorText.textContent = message;
+  errorText.hidden = !message;
+  field.setAttribute("aria-invalid", String(Boolean(message)));
+}
+
+function openProfileDialog() {
+  if (!userId) return;
+  profileForm.reset();
+  const nameInput = profileForm.elements.namedItem("display_name");
+  nameInput.value = document.getElementById("account-name").textContent.trim();
+  // Reset pesan error dan berhasil
+  showProfileError();
+  showProfileSuccess();
+  showProfileFieldError(nameInput, "");
+  showProfileFieldError(profileForm.elements.namedItem("password"), "");
+  showProfileFieldError(profileForm.elements.namedItem("password_confirm"), "");
+  profileDialog.showModal();
+}
+
+function updateProfile(event) {
+  event.preventDefault();
+  if (!userId) return;
+
+  const nameInput = profileForm.elements.namedItem("display_name");
+  const passwordInput = profileForm.elements.namedItem("password");
+  const confirmInput = profileForm.elements.namedItem("password_confirm");
+
+  const displayName = nameInput.value.trim();
+  const password = passwordInput.value;
+  const passwordConfirm = confirmInput.value;
+
+  // Reset semua error
+  showProfileError();
+  showProfileSuccess();
+  showProfileFieldError(nameInput, "");
+  showProfileFieldError(passwordInput, "");
+  showProfileFieldError(confirmInput, "");
+
+  let hasError = false;
+
+  if (!displayName) {
+    showProfileFieldError(nameInput, "Nama tampilan wajib diisi.");
+    hasError = true;
+  }
+
+  const hasPassword = password.length > 0;
+  const hasConfirm = passwordConfirm.length > 0;
+
+  if (hasPassword !== hasConfirm) {
+    const target = hasPassword ? confirmInput : passwordInput;
+    showProfileFieldError(
+      target,
+      "Kata sandi baru dan konfirmasi harus diisi bersama-sama.",
+    );
+    target.focus();
+    hasError = true;
+  }
+
+  if (hasPassword && password.length < 8) {
+    showProfileFieldError(passwordInput, "Kata sandi baru minimal 8 karakter.");
+    passwordInput.focus();
+    hasError = true;
+  }
+
+  if (hasPassword && password !== passwordConfirm) {
+    showProfileFieldError(confirmInput, "Konfirmasi kata sandi tidak cocok.");
+    confirmInput.focus();
+    hasError = true;
+  }
+
+  if (hasError) return;
+
+  const updateParams = { data: { display_name: displayName } };
+  if (hasPassword) {
+    updateParams.password = password;
+  }
+
+  saveProfileButton.disabled = true;
+  saveProfileButton.textContent = "Menyimpan...";
+
+  client.auth
+    .updateUser(updateParams)
+    .then(({ data, error }) => {
+      if (error) throw error;
+      // Perbarui nama yang ditampilkan di sidebar
+      const nameEl = document.getElementById("account-name");
+      if (nameEl) nameEl.textContent = displayName;
+      showProfileSuccess("Profil berhasil diperbarui.");
+      profileForm.reset();
+      nameInput.value = displayName;
+    })
+    .catch((error) => {
+      showProfileError(`Gagal memperbarui profil. ${error.message}`);
+    })
+    .finally(() => {
+      saveProfileButton.disabled = false;
+      saveProfileButton.textContent = "Simpan";
+    });
+}
+
 function applySession(session) {
   const user = session?.user;
   const nextUserId = user?.id ?? null;
@@ -1101,6 +1479,10 @@ function applySession(session) {
   searchTask.value = "";
   priorityFilter.value = "all";
   activeStatus = "all";
+  activePeriod = "all";
+  activeMonth = null;
+  yearDetail = false;
+  syncPeriodButtons();
   visibleMonth = new Date();
   selectedDate = getDateKey(visibleMonth);
   timelineStart = getTimelineStart();
@@ -1154,6 +1536,53 @@ priorityFilter.addEventListener("change", () => {
   renderTasks();
   updateControls();
 });
+
+for (const button of periodFilters) {
+  button.addEventListener("click", () => {
+    activePeriod = button.dataset.period;
+    activeMonth = null;
+    yearDetail = false;
+    syncPeriodButtons();
+    renderDashboard();
+    updateControls();
+  });
+}
+
+// Tombol bulan dibuat otomatis dan hanya dipakai saat "Tahun ini" aktif.
+for (const [index, name] of [
+  "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+  "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+].entries()) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "filter-button";
+  button.dataset.month = String(index);
+  const nameEl = document.createElement("span");
+  nameEl.className = "month-name";
+  nameEl.textContent = name;
+  const countEl = document.createElement("span");
+  countEl.className = "month-count";
+  countEl.textContent = "0";
+  button.append(nameEl, countEl);
+  button.addEventListener("click", () => {
+    activePeriod = "year";
+    activeMonth = index;
+    yearDetail = true;
+    syncPeriodButtons();
+    renderDashboard();
+    updateControls();
+  });
+  monthFilterBar.append(button);
+}
+yearViewBack.addEventListener("click", () => {
+  activeMonth = null;
+  yearDetail = false;
+  syncPeriodButtons();
+  renderDashboard();
+  updateControls();
+});
+syncPeriodButtons();
+
 addForm.addEventListener("submit", addTask);
 openAddButton.addEventListener("click", () => {
   addDialog.showModal();
@@ -1192,6 +1621,27 @@ searchTask.addEventListener("input", () => {
 authForm.addEventListener("submit", submitAuth);
 authToggle.addEventListener("click", () => setAuthMode(!isRegistering));
 logoutButton.addEventListener("click", signOut);
+openProfileButton.addEventListener("click", openProfileDialog);
+openProfileButton.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    openProfileDialog();
+  }
+});
+accountAvatar.addEventListener("click", openProfileDialog);
+accountAvatar.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    openProfileDialog();
+  }
+});
+cancelProfileButton.addEventListener("click", () => profileDialog.close());
+profileForm.addEventListener("submit", updateProfile);
+profileDialog.addEventListener("close", () => {
+  showProfileError();
+  showProfileSuccess();
+});
+
 function refreshClock() {
   if (!userId) return;
 
