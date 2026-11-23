@@ -3,13 +3,17 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./config.js";
 const STATUS_LABELS = { todo: "To Do", progress: "In Progress", done: "Done" };
 const PRIORITY_LABELS = { low: "Rendah", medium: "Sedang", high: "Tinggi" };
 const PRIORITY_ORDER = { low: 1, medium: 2, high: 3 };
-const TASK_COLUMNS = "id, title, description, status, priority, deadline, deadline_time, created_at, archived_at";
+const TASK_COLUMNS =
+  "id, title, description, status, priority, deadline, deadline_time, created_at, archived_at";
 const PAGE_SIZE = 500;
 const TIMELINE_DAYS = 10;
 
 const fullDate = new Intl.DateTimeFormat("id-ID", { dateStyle: "full" });
 const shortDate = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" });
-const monthName = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" });
+const monthName = new Intl.DateTimeFormat("id-ID", {
+  month: "long",
+  year: "numeric",
+});
 const weekday = new Intl.DateTimeFormat("id-ID", { weekday: "short" });
 
 const startupState = document.getElementById("startup-state");
@@ -101,7 +105,9 @@ function formatDeadlineTime(time) {
 
 function formatDeadline(task, formatter) {
   const date = formatDateKey(task.deadline, formatter);
-  return task.deadline_time ? `${date}, pukul ${formatDeadlineTime(task.deadline_time)}` : date;
+  return task.deadline_time
+    ? `${date}, pukul ${formatDeadlineTime(task.deadline_time)}`
+    : date;
 }
 
 function getSupabaseClient() {
@@ -111,11 +117,18 @@ function getSupabaseClient() {
   if (typeof window.supabase?.createClient !== "function") {
     throw new Error("Library Supabase gagal dimuat. Periksa koneksi internet.");
   }
-  return window.supabase.createClient(SUPABASE_URL.trim(), SUPABASE_ANON_KEY.trim());
+  return window.supabase.createClient(
+    SUPABASE_URL.trim(),
+    SUPABASE_ANON_KEY.trim(),
+  );
 }
 
 function showRequestError(message = "", canRetry = false) {
-  const target = editDialog.open ? editRequestError : addDialog.open ? addRequestError : requestErrorText;
+  const target = editDialog.open
+    ? editRequestError
+    : addDialog.open
+      ? addRequestError
+      : requestErrorText;
   for (const element of [editRequestError, addRequestError, requestErrorText]) {
     element.textContent = element === target ? message : "";
     element.hidden = !element.textContent;
@@ -131,7 +144,8 @@ function updateControls() {
   editFields.disabled = isSaving;
   saveAdd.textContent = isSaving ? "Menyimpan..." : "Tambah";
   saveEdit.textContent = isSaving ? "Menyimpan..." : "Simpan";
-  saveStatus.textContent = isSaving && !editDialog.open && !addDialog.open ? "Menyimpan..." : "";
+  saveStatus.textContent =
+    isSaving && !editDialog.open && !addDialog.open ? "Menyimpan..." : "";
   for (const list of [taskList, archiveList]) {
     list.setAttribute("aria-busy", String(isLoading || isSaving));
     for (const action of list.querySelectorAll("[data-task-action]")) {
@@ -162,7 +176,8 @@ async function loadTasks() {
     const loadedTasks = [];
     // Iteration: ambil maksimal 500 task per permintaan. Halaman yang lebih pendek menandai akhir data.
     for (let start = 0; ; start += PAGE_SIZE) {
-      const { data, error } = await client.from("tasks")
+      const { data, error } = await client
+        .from("tasks")
         .select(TASK_COLUMNS)
         .eq("user_id", userId)
         .order("id", { ascending: false })
@@ -177,7 +192,9 @@ async function loadTasks() {
     hasLoaded = true;
   } catch (error) {
     if (requestVersion === sessionVersion) {
-      const missingColumn = error.code === "42703" && /archived_at|deadline_time/.test(error.message);
+      const missingColumn =
+        error.code === "42703" &&
+        /archived_at|deadline_time/.test(error.message);
       const message = missingColumn
         ? "Jalankan database.sql di SQL Editor Supabase untuk memperbarui tabel task."
         : `Gagal memuat task. ${error.message}`;
@@ -214,7 +231,8 @@ async function saveTask(createQuery, applyResult, failureMessage) {
     // Perbarui array hanya setelah Supabase mengonfirmasi perubahan.
     applyResult(data);
   } catch (error) {
-    if (requestVersion === sessionVersion) showRequestError(`${failureMessage} ${error.message}`);
+    if (requestVersion === sessionVersion)
+      showRequestError(`${failureMessage} ${error.message}`);
   } finally {
     // Setelah berhasil atau gagal, segarkan tampilan dan aktifkan kembali kontrol.
     if (requestVersion === sessionVersion) {
@@ -226,7 +244,9 @@ async function saveTask(createQuery, applyResult, failureMessage) {
 }
 
 function showFieldError(field, message) {
-  const errorText = document.getElementById(field.getAttribute("aria-describedby"));
+  const errorText = document.getElementById(
+    field.getAttribute("aria-describedby"),
+  );
   errorText.textContent = message;
   errorText.hidden = !message;
   field.setAttribute("aria-invalid", String(Boolean(message)));
@@ -249,10 +269,15 @@ function validateDeadline(field, isCreating, now) {
 }
 
 function validateDeadlineTime(field, deadline, isCreating, now) {
-  if (field.validity.badInput || field.validity.stepMismatch) return "Masukkan jam dan menit yang valid.";
+  if (field.validity.badInput || field.validity.stepMismatch)
+    return "Masukkan jam dan menit yang valid.";
   if (!field.value) return "";
   if (!deadline) return "Isi tanggal deadline terlebih dahulu.";
-  if (isCreating && deadline === getDateKey(now) && field.value < getTimeKey(now)) {
+  if (
+    isCreating &&
+    deadline === getDateKey(now) &&
+    field.value < getTimeKey(now)
+  ) {
     return "Jam deadline hari ini sudah lewat.";
   }
   return "";
@@ -267,12 +292,21 @@ function readTaskForm(form, isCreating) {
   const now = new Date();
   const titleError = validateTitle(title);
   const deadlineError = validateDeadline(deadlineField, isCreating, now);
-  const timeError = validateDeadlineTime(timeField, deadlineField.value, isCreating, now);
+  const timeError = validateDeadlineTime(
+    timeField,
+    deadlineField.value,
+    isCreating,
+    now,
+  );
 
   showFieldError(titleField, titleError);
   showFieldError(deadlineField, deadlineError);
   showFieldError(timeField, timeError);
-  for (const [field, error] of [[titleField, titleError], [deadlineField, deadlineError], [timeField, timeError]]) {
+  for (const [field, error] of [
+    [titleField, titleError],
+    [deadlineField, deadlineError],
+    [timeField, timeError],
+  ]) {
     if (error) {
       field.focus();
       return null;
@@ -305,7 +339,7 @@ function addTask(event) {
       addForm.reset();
       addDialog.close();
     },
-    "Gagal menambah task."
+    "Gagal menambah task.",
   );
 }
 
@@ -316,12 +350,20 @@ function addTask(event) {
 function updateTask(id, changes, afterUpdate, failureMessage) {
   return saveTask(
     // Batasi update ke satu ID, lalu ganti objek terkait dengan baris yang dikembalikan database.
-    () => client.from("tasks").update(changes).eq("id", id).select(TASK_COLUMNS).single(),
+    () =>
+      client
+        .from("tasks")
+        .update(changes)
+        .eq("id", id)
+        .select(TASK_COLUMNS)
+        .single(),
     (savedTask) => {
-      tasks = tasks.map((task) => task.id === savedTask.id ? savedTask : task);
+      tasks = tasks.map((task) =>
+        task.id === savedTask.id ? savedTask : task,
+      );
       afterUpdate?.();
     },
-    failureMessage
+    failureMessage,
   );
 }
 
@@ -345,7 +387,9 @@ function toggleArchive(task) {
   const archiving = isActiveTask(task);
   // Status dan deadline tetap disimpan. Pulihkan dengan mengosongkan waktu arsip.
   const archivedAt = archiving ? new Date().toISOString() : null;
-  const failureMessage = archiving ? "Gagal mengarsipkan task." : "Gagal memulihkan task.";
+  const failureMessage = archiving
+    ? "Gagal mengarsipkan task."
+    : "Gagal memulihkan task.";
   return updateTask(task.id, { archived_at: archivedAt }, null, failureMessage);
 }
 
@@ -372,7 +416,12 @@ function editTask(event) {
   const changes = readTaskForm(editForm, false);
   if (!changes || editingTaskId === null) return;
 
-  return updateTask(editingTaskId, changes, () => editDialog.close(), "Gagal mengedit task.");
+  return updateTask(
+    editingTaskId,
+    changes,
+    () => editDialog.close(),
+    "Gagal mengedit task.",
+  );
 }
 
 /**
@@ -390,7 +439,7 @@ function deleteTask(task) {
     (deletedTask) => {
       tasks = tasks.filter((item) => item.id !== deletedTask.id);
     },
-    "Gagal menghapus task."
+    "Gagal menghapus task.",
   );
 }
 
@@ -400,14 +449,20 @@ function filterTasks(status = activeStatus) {
   return tasks.filter((task) => {
     const matchesStatus = status === "all" || task.status === status;
     const matchesPriority = priority === "all" || task.priority === priority;
-    return isActiveTask(task) && matchesStatus && matchesPriority && matchesSearch(task);
+    return (
+      isActiveTask(task) &&
+      matchesStatus &&
+      matchesPriority &&
+      matchesSearch(task)
+    );
   });
 }
 
 function renderStatusFilters() {
   for (const button of statusFilters) {
     const status = button.dataset.status;
-    button.querySelector(".filter-count").textContent = filterTasks(status).length;
+    button.querySelector(".filter-count").textContent =
+      filterTasks(status).length;
     button.setAttribute("aria-pressed", String(activeStatus === status));
   }
 }
@@ -417,7 +472,9 @@ function renderTaskDeadline(card, task) {
 
   const deadline = card.querySelector(".task-deadline");
   const time = deadline.querySelector("time");
-  time.dateTime = task.deadline_time ? `${task.deadline}T${task.deadline_time.slice(0, 5)}` : task.deadline;
+  time.dateTime = task.deadline_time
+    ? `${task.deadline}T${task.deadline_time.slice(0, 5)}`
+    : task.deadline;
   time.textContent = formatDeadline(task, shortDate);
   deadline.hidden = false;
 }
@@ -431,7 +488,9 @@ function updateDeadlineBadges(now = new Date()) {
     if (!deadline) continue;
 
     // Tanggal tanpa jam baru terlambat setelah hari berganti. Jam dibandingkan sampai menit.
-    const isLate = !card.classList.contains("is-done") && deadline < (deadline.includes("T") ? dateTime : today);
+    // Task yang sudah Done TETAP memakai badge "Terlambat" bila deadline sudah lewat,
+    // supaya penanda auto-selesai (dari cron maupun klien) tidak hilang.
+    const isLate = deadline < (deadline.includes("T") ? dateTime : today);
     const isToday = !isLate && deadline.startsWith(today);
     const badge = card.querySelector(".deadline-badge");
     badge.textContent = isLate ? "Terlambat" : isToday ? "Hari ini" : "";
@@ -446,9 +505,14 @@ function updateDeadlineBadges(now = new Date()) {
  * Task tanpa jam dianggap terlambat setelah hari berganti; dengan jam dibandingkan sampai menit.
  */
 function isOverdue(task, now = new Date()) {
-  if (!task.deadline || task.status === "done" || !isActiveTask(task)) return false;
-  const deadlineValue = task.deadline_time ? `${task.deadline}T${task.deadline_time.slice(0, 5)}` : task.deadline;
-  const nowValue = task.deadline_time ? `${getDateKey(now)}T${getTimeKey(now)}` : getDateKey(now);
+  if (!task.deadline || task.status === "done" || !isActiveTask(task))
+    return false;
+  const deadlineValue = task.deadline_time
+    ? `${task.deadline}T${task.deadline_time.slice(0, 5)}`
+    : task.deadline;
+  const nowValue = task.deadline_time
+    ? `${getDateKey(now)}T${getTimeKey(now)}`
+    : getDateKey(now);
   return deadlineValue < nowValue;
 }
 
@@ -459,21 +523,25 @@ function isOverdue(task, now = new Date()) {
  */
 function autoCompleteOverdueTasks() {
   if (!userId || !hasLoaded || isLoading || isSaving) return;
-  const overdueIds = tasks.filter((task) => isOverdue(task)).map((task) => task.id);
+  const overdueIds = tasks
+    .filter((task) => isOverdue(task))
+    .map((task) => task.id);
   if (overdueIds.length === 0) return;
 
   return saveTask(
-    () => client.from("tasks")
-      .update({ status: "done" })
-      .in("id", overdueIds)
-      .eq("user_id", userId)
-      .select(TASK_COLUMNS),
+    () =>
+      client
+        .from("tasks")
+        .update({ status: "done" })
+        .in("id", overdueIds)
+        .eq("user_id", userId)
+        .select(TASK_COLUMNS),
     (updated) => {
       // Perbarui array `tasks` dengan baris yang sudah berstatus "done" dari database.
       const byId = new Map(updated.map((task) => [task.id, task]));
       tasks = tasks.map((task) => byId.get(task.id) ?? task);
     },
-    "Gagal menyelesaikan task terlambat."
+    "Gagal menyelesaikan task terlambat.",
   );
 }
 
@@ -487,7 +555,8 @@ async function syncTaskStatuses() {
   if (!userId || !hasLoaded || isLoading || isSaving) return;
   const requestVersion = sessionVersion;
 
-  const { data, error } = await client.from("tasks")
+  const { data, error } = await client
+    .from("tasks")
     .select("id, status, archived_at")
     .eq("user_id", userId);
 
@@ -496,13 +565,19 @@ async function syncTaskStatuses() {
   const remote = new Map(data.map((row) => [row.id, row]));
   const changed = tasks.some((task) => {
     const row = remote.get(task.id);
-    return row && (row.status !== task.status || Boolean(row.archived_at) !== Boolean(task.archived_at));
+    return (
+      row &&
+      (row.status !== task.status ||
+        Boolean(row.archived_at) !== Boolean(task.archived_at))
+    );
   });
   if (!changed) return;
 
   tasks = tasks.map((task) => {
     const row = remote.get(task.id);
-    return row ? { ...task, status: row.status, archived_at: row.archived_at } : task;
+    return row
+      ? { ...task, status: row.status, archived_at: row.archived_at }
+      : task;
   });
   renderDashboard();
 }
@@ -520,7 +595,8 @@ function createTaskCard(task) {
   card.classList.add(`priority-${task.priority}`, `status-${task.status}`);
   card.classList.toggle("is-done", task.status === "done");
   card.querySelector(".task-title").textContent = task.title;
-  card.querySelector(".priority-text").textContent = `Prioritas ${PRIORITY_LABELS[task.priority]}`;
+  card.querySelector(".priority-text").textContent =
+    `Prioritas ${PRIORITY_LABELS[task.priority]}`;
   renderTaskDeadline(card, task);
 
   const descriptionEl = card.querySelector(".task-description");
@@ -548,13 +624,18 @@ function createTaskCard(task) {
   } else {
     status.value = task.status;
     status.setAttribute("aria-label", `Ubah status ${task.title}`);
-    status.addEventListener("change", () => updateStatus(task.id, status.value));
+    status.addEventListener("change", () =>
+      updateStatus(task.id, status.value),
+    );
     editButton.setAttribute("aria-label", `Edit ${task.title}`);
     editButton.addEventListener("click", () => openEditDialog(task));
     archiveButton.setAttribute("aria-label", `Arsipkan ${task.title}`);
     archiveButton.addEventListener("click", () => toggleArchive(task));
   }
-  deleteButton.setAttribute("aria-label", `${archived ? "Hapus permanen" : "Hapus"} ${task.title}`);
+  deleteButton.setAttribute(
+    "aria-label",
+    `${archived ? "Hapus permanen" : "Hapus"} ${task.title}`,
+  );
   deleteButton.addEventListener("click", () => deleteTask(task));
   return card;
 }
@@ -584,9 +665,16 @@ function renderTasks() {
 }
 
 function renderArchive() {
-  const archivedTasks = tasks.filter((task) => !isActiveTask(task) && matchesSearch(task));
-  archivedTasks.sort((first, second) => Date.parse(second.archived_at) - Date.parse(first.archived_at));
-  const emptyMessage = searchTask.value.trim() ? "Tidak ada arsip yang cocok." : "Belum ada task yang diarsipkan.";
+  const archivedTasks = tasks.filter(
+    (task) => !isActiveTask(task) && matchesSearch(task),
+  );
+  archivedTasks.sort(
+    (first, second) =>
+      Date.parse(second.archived_at) - Date.parse(first.archived_at),
+  );
+  const emptyMessage = searchTask.value.trim()
+    ? "Tidak ada arsip yang cocok."
+    : "Belum ada task yang diarsipkan.";
   renderTaskList(archiveList, archiveState, archivedTasks, emptyMessage);
 }
 
@@ -618,7 +706,10 @@ function createCalendarDay(date, day, today, group) {
   if (date === today) button.setAttribute("aria-current", "date");
 
   const dateLabel = formatDateKey(date, fullDate);
-  button.setAttribute("aria-label", group ? `${dateLabel}, ${group.tasks.length} task` : dateLabel);
+  button.setAttribute(
+    "aria-label",
+    group ? `${dateLabel}, ${group.tasks.length} task` : dateLabel,
+  );
   number.className = "day-number";
   number.textContent = String(day);
   button.append(number);
@@ -658,7 +749,9 @@ function renderCalendar(today, groups) {
       calendarDays.append(blank);
     } else {
       const date = getDateKey(new Date(year, month, day));
-      calendarDays.append(createCalendarDay(date, day, today, groups.get(date)));
+      calendarDays.append(
+        createCalendarDay(date, day, today, groups.get(date)),
+      );
     }
   }
 }
@@ -717,9 +810,14 @@ function renderSchedule(today) {
 
 function changeMonth(step) {
   const today = new Date();
-  visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + step, 1);
-  const isCurrentMonth = visibleMonth.getFullYear() === today.getFullYear()
-    && visibleMonth.getMonth() === today.getMonth();
+  visibleMonth = new Date(
+    visibleMonth.getFullYear(),
+    visibleMonth.getMonth() + step,
+    1,
+  );
+  const isCurrentMonth =
+    visibleMonth.getFullYear() === today.getFullYear() &&
+    visibleMonth.getMonth() === today.getMonth();
   selectedDate = getDateKey(isCurrentMonth ? today : visibleMonth);
   renderSchedule(getDateKey(today));
 }
@@ -751,8 +849,12 @@ function getTimelineStart() {
 
 function compareDeadlines(first, second) {
   // Task tanpa jam ditampilkan setelah task dengan jam pada tanggal yang sama.
-  return first.deadline.localeCompare(second.deadline)
-    || (first.deadline_time ?? "24:00").localeCompare(second.deadline_time ?? "24:00");
+  return (
+    first.deadline.localeCompare(second.deadline) ||
+    (first.deadline_time ?? "24:00").localeCompare(
+      second.deadline_time ?? "24:00",
+    )
+  );
 }
 
 function createTimelineRow(task, startIndex, endIndex) {
@@ -760,10 +862,13 @@ function createTimelineRow(task, startIndex, endIndex) {
   const button = document.createElement("button");
   row.className = "timeline-row";
   // Batang berjalan dari indeks tanggal dibuat (created_at) sampai indeks tanggal deadline.
-  const widthPercent = Math.max(1, endIndex - startIndex + 1) * (100 / TIMELINE_DAYS);
+  const widthPercent =
+    Math.max(1, endIndex - startIndex + 1) * (100 / TIMELINE_DAYS);
   button.type = "button";
   button.className = `timeline-event status-${task.status} priority-${task.priority}`;
-  button.textContent = task.deadline_time ? `${formatDeadlineTime(task.deadline_time)}  ${task.title}` : task.title;
+  button.textContent = task.deadline_time
+    ? `${formatDeadlineTime(task.deadline_time)}  ${task.title}`
+    : task.title;
   button.title = `${task.title} · ${STATUS_LABELS[task.status]} · ${formatDeadline(task, fullDate)}`;
   button.setAttribute("aria-label", `Edit ${button.title}`);
   button.addEventListener("click", () => openEditDialog(task));
@@ -799,7 +904,8 @@ function renderTimeline(today) {
   timelineRows.style.setProperty("--today-index", todayIndex);
 
   const scheduled = tasks.filter((task) => {
-    if (!isActiveTask(task) || !task.deadline || !matchesSearch(task)) return false;
+    if (!isActiveTask(task) || !task.deadline || !matchesSearch(task))
+      return false;
     // Task muncul jika deadline-nya atau tanggal dibuat ada dalam periode.
     const startKey = getDateKey(new Date(task.created_at));
     return dateKeys.includes(task.deadline) || dateKeys.includes(startKey);
@@ -807,8 +913,14 @@ function renderTimeline(today) {
   scheduled.sort(compareDeadlines);
   for (const task of scheduled) {
     const startKey = getDateKey(new Date(task.created_at));
-    const startIndex = Math.max(0, Math.min(TIMELINE_DAYS - 1, dateKeys.indexOf(startKey)));
-    const endIndex = Math.max(0, Math.min(TIMELINE_DAYS - 1, dateKeys.indexOf(task.deadline)));
+    const startIndex = Math.max(
+      0,
+      Math.min(TIMELINE_DAYS - 1, dateKeys.indexOf(startKey)),
+    );
+    const endIndex = Math.max(
+      0,
+      Math.min(TIMELINE_DAYS - 1, dateKeys.indexOf(task.deadline)),
+    );
     // Pastikan batang minimal lebar 1 hari meski dibuat dan jatuh tempo sama hari.
     const finalEndIndex = Math.max(startIndex, endIndex);
     timelineRows.append(createTimelineRow(task, startIndex, finalEndIndex));
@@ -827,7 +939,10 @@ function renderTimeline(today) {
 }
 
 function moveTimeline(step) {
-  timelineStart = step === 0 ? getTimelineStart() : shiftDate(timelineStart, step * TIMELINE_DAYS);
+  timelineStart =
+    step === 0
+      ? getTimelineStart()
+      : shiftDate(timelineStart, step * TIMELINE_DAYS);
   renderTimeline(getDateKey(new Date()));
   updateControls();
 }
@@ -838,7 +953,9 @@ function renderCompletion() {
 
   // Progres memakai semua task aktif, termasuk yang tidak cocok dengan filter daftar.
   const activeTasks = tasks.filter(isActiveTask);
-  const completedCount = activeTasks.filter((task) => task.status === "done").length;
+  const completedCount = activeTasks.filter(
+    (task) => task.status === "done",
+  ).length;
   completionBar.max = Math.max(activeTasks.length, 1);
   completionBar.value = completedCount;
   completionCount.textContent = `${completedCount} dari ${activeTasks.length} selesai`;
@@ -878,9 +995,15 @@ function setAuthMode(register) {
     password.removeAttribute("minlength");
     password.removeAttribute("aria-describedby");
   }
-  document.getElementById("auth-heading").textContent = register ? "Daftar akun" : "Masuk";
-  document.getElementById("auth-intro").textContent = register ? "Simpan task dan deadline di akunmu." : "Atur task, deadline, dan jadwalmu dalam satu tempat.";
-  document.getElementById("auth-switch-text").textContent = register ? "Sudah punya akun?" : "Belum punya akun?";
+  document.getElementById("auth-heading").textContent = register
+    ? "Daftar akun"
+    : "Masuk";
+  document.getElementById("auth-intro").textContent = register
+    ? "Simpan task dan deadline di akunmu."
+    : "Atur task, deadline, dan jadwalmu dalam satu tempat.";
+  document.getElementById("auth-switch-text").textContent = register
+    ? "Sudah punya akun?"
+    : "Belum punya akun?";
   authSubmit.textContent = register ? "Daftar" : "Masuk";
   authToggle.textContent = register ? "Masuk" : "Daftar";
   showAuthMessage(authError);
@@ -918,10 +1041,16 @@ async function submitAuth(event) {
       if (error) throw error;
       if (!data.session) {
         setAuthMode(false);
-        showAuthMessage(authNotice, "Periksa email untuk tautan konfirmasi, lalu masuk ke akunmu.");
+        showAuthMessage(
+          authNotice,
+          "Periksa email untuk tautan konfirmasi, lalu masuk ke akunmu.",
+        );
       }
     } else {
-      const { error } = await client.auth.signInWithPassword({ email, password });
+      const { error } = await client.auth.signInWithPassword({
+        email,
+        password,
+      });
       if (error) throw error;
     }
   } catch (error) {
@@ -987,10 +1116,14 @@ function applySession(session) {
   }
 
   const savedName = user.user_metadata?.display_name;
-  const name = typeof savedName === "string" && savedName.trim() ? savedName : user.email ?? "Pengguna";
+  const name =
+    typeof savedName === "string" && savedName.trim()
+      ? savedName
+      : (user.email ?? "Pengguna");
   document.getElementById("account-name").textContent = name;
   document.getElementById("account-email").textContent = user.email;
-  document.getElementById("account-avatar").textContent = [...name][0]?.toUpperCase() ?? "?";
+  document.getElementById("account-avatar").textContent =
+    [...name][0]?.toUpperCase() ?? "?";
   authForm.reset();
   setAuthMode(false);
   loadTasks();
@@ -1000,8 +1133,14 @@ function applySession(session) {
 for (const button of viewButtons) {
   button.addEventListener("click", () => setView(button.dataset.view));
 }
-for (const [id, step] of [["timeline-back", -1], ["timeline-today", 0], ["timeline-next", 1]]) {
-  document.getElementById(id).addEventListener("click", () => moveTimeline(step));
+for (const [id, step] of [
+  ["timeline-back", -1],
+  ["timeline-today", 0],
+  ["timeline-next", 1],
+]) {
+  document
+    .getElementById(id)
+    .addEventListener("click", () => moveTimeline(step));
 }
 for (const button of statusFilters) {
   button.addEventListener("click", () => {
@@ -1023,7 +1162,9 @@ openAddButton.addEventListener("click", () => {
   showFieldError(addForm.elements.namedItem("deadline"), "");
   showFieldError(addForm.elements.namedItem("deadline_time"), "");
 });
-document.getElementById("cancel-add").addEventListener("click", () => addDialog.close());
+document
+  .getElementById("cancel-add")
+  .addEventListener("click", () => addDialog.close());
 addDialog.addEventListener("cancel", (event) => {
   if (isSaving) event.preventDefault();
 });
@@ -1034,9 +1175,15 @@ editDialog.addEventListener("cancel", (event) => {
 editDialog.addEventListener("close", () => {
   editingTaskId = null;
 });
-document.getElementById("cancel-edit").addEventListener("click", () => editDialog.close());
-document.getElementById("previous-month").addEventListener("click", () => changeMonth(-1));
-document.getElementById("next-month").addEventListener("click", () => changeMonth(1));
+document
+  .getElementById("cancel-edit")
+  .addEventListener("click", () => editDialog.close());
+document
+  .getElementById("previous-month")
+  .addEventListener("click", () => changeMonth(-1));
+document
+  .getElementById("next-month")
+  .addEventListener("click", () => changeMonth(1));
 retryButton.addEventListener("click", loadTasks);
 searchTask.addEventListener("input", () => {
   renderDashboard();

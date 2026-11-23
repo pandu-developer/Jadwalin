@@ -12,7 +12,7 @@
 - **Kalender** — Tampilan bulanan dengan titik warna sesuai prioritas; klik tanggal untuk melihat task + deskripsinya.
 - **Arsip** — Arsipkan task, pulihkan, atau hapus permanen.
 - **Deskripsi** — Setiap task bisa punya catatan tambahan (opsional), tampil di bawah judul.
-- **Deadline & jam** — Badge "Hari ini" / "Terlambat" diperbarui otomatis.
+- **Deadline & jam** — Badge "Hari ini" / "Terlambat" diperbarui otomatis. Badge "Terlambat" **tetap tampil** walau status sudah **Done**, sebagai penanda task diselesaikan setelah deadline.
 - **Auto-selesai 24/7** — Task terlambat otomatis berubah menjadi **Done** lewat job `pg_cron` di Supabase, **walau web tidak dibuka**. Klien juga mengecek tiap 15 detik sebagai respons cepat saat aplikasi aktif. Keduanya memakai aturan yang sama.
 - **Progres** — Progress bar menghitung task aktif yang sudah selesai.
 
@@ -125,6 +125,6 @@ File seperti `node_modules/`, `.env`, log, dan file sistem tidak akan ikut ter-p
 Auto-selesai bekerja berlapis:
 
 - **Database (`cron.sql`)** → sumber kebenaran, jalan 24/7 tiap menit walaupun browser tertutup.
-- **Klien (`script.js`)** → pengecekan instan tiap 15 detik / saat jendela difokuskan, supaya perubahan langsung terlihat tanpa menunggu job berikutnya. Klien juga menarik ulang status dari database pada jeda yang sama, sehingga perubahan `pg_cron` langsung tercermin tanpa refresh halaman (badge "Terlambat" ikut hilang begitu task berstatus **Done**).
+- **Klien (`script.js`)** → pengecekan instan tiap 15 detik / saat jendela difokuskan, supaya perubahan langsung terlihat tanpa menunggu job berikutnya. Klien juga menarik ulang status dari database pada jeda yang sama, sehingga perubahan `pg_cron` langsung tercermin tanpa refresh halaman (status jadi **Done**, badge "Terlambat" tetap tampil).
 
 Keduanya memakai aturan deadline yang sama, jadi tidak akan saling bertentangan. Cukup jalankan `cron.sql` sekali di Supabase; tidak perlu Edge Function atau server tambahan.
