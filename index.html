@@ -10,13 +10,13 @@
       href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./style.css?v=2" />
+    <link rel="stylesheet" href="./style.css?v=6" />
     <!-- Muat Supabase dari CDN sebelum script.js menggunakannya. -->
     <script
       defer
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
     ></script>
-    <script type="module" src="./script.js?v=2"></script>
+    <script type="module" src="./script.js?v=6"></script>
   </head>
   <body>
     <svg
@@ -623,8 +623,17 @@
           </div>
 
           <section class="panel rekap-chart">
-            <h3>Deadline per bulan tahun ini</h3>
-            <div id="rekap-month-bars" class="rekap-month-bars"></div>
+            <h3>Tren deadline per bulan</h3>
+            <div class="rekap-line-wrap">
+              <svg
+                id="rekap-line-chart"
+                class="rekap-line"
+                viewBox="0 0 720 200"
+                role="img"
+                aria-label="Grafik kurva jumlah deadline per bulan"
+              ></svg>
+              <div id="rekap-line-tooltip" class="rekap-line-tooltip" hidden></div>
+            </div>
           </section>
         </section>
       </main>

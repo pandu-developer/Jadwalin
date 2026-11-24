@@ -7,6 +7,10 @@ const MONTH_NAMES_FULL = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
   "Juli", "Agustus", "September", "Oktober", "November", "Desember",
 ];
+const MONTH_LABELS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+  "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+];
 const TASK_COLUMNS =
   "id, title, description, status, priority, deadline, deadline_time, created_at, archived_at";
 const PAGE_SIZE = 500;
@@ -63,7 +67,8 @@ const rekapTotal = document.getElementById("rekap-total");
 const rekapDone = document.getElementById("rekap-done");
 const rekapLate = document.getElementById("rekap-late");
 const rekapHigh = document.getElementById("rekap-high");
-const rekapMonthBars = document.getElementById("rekap-month-bars");
+const rekapLineChart = document.getElementById("rekap-line-chart");
+const rekapLineTooltip = document.getElementById("rekap-line-tooltip");
 const taskTemplate = document.getElementById("task-template");
 const taskList = document.getElementById("task-list");
 const taskState = document.getElementById("task-state");
@@ -91,6 +96,9 @@ const cancelProfileButton = document.getElementById("cancel-profile");
 const saveProfileButton = document.getElementById("save-profile");
 const profileRequestError = document.getElementById("profile-request-error");
 const profileSuccess = document.getElementById("profile-success");
+
+let rekapLinePoints = [];
+let rekapLineWidth = 720;
 
 let client;
 let userId = null;
@@ -1160,7 +1168,8 @@ function renderRekap() {
     high: activeTasks.filter((task) => task.priority === "high").length,
   };
   const total = activeTasks.length;
-  const late = activeTasks.filter(isOverdue).length;
+  // Jangan pass isOverdue langsung: filter() akan mengirim index sebagai argumen ke-2 (now).
+  const late = activeTasks.filter((task) => isOverdue(task)).length;
   const percent = total ? Math.round((counts.done / total) * 100) : 0;
 
   rekapTotal.textContent = total;
@@ -1193,30 +1202,117 @@ function renderRekap() {
       monthly[Number(task.deadline.slice(5, 7)) - 1] += 1;
     }
   }
-  const monthMax = Math.max(...monthly, 1);
-  const monthLabels = [
-    "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-    "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
-  ];
-  rekapMonthBars.replaceChildren();
-  monthly.forEach((count, index) => {
-    const item = document.createElement("div");
-    item.className = "month-bar-item";
-    const track = document.createElement("div");
-    track.className = "month-bar-track";
-    const fill = document.createElement("div");
-    fill.className = "month-bar-fill";
-    fill.style.height = `${(count / monthMax) * 100}%`;
-    fill.title = `${count} task`;
-    track.append(fill);
-    const label = document.createElement("span");
-    label.textContent = monthLabels[index];
-    const value = document.createElement("strong");
-    value.textContent = count;
-    item.append(track, label, value);
-    rekapMonthBars.append(item);
+  renderRekapLine(monthly);
+}
+
+function renderRekapLine(monthly) {
+  const width = Math.max(rekapLineChart.clientWidth, 320);
+  const height = 200;
+  const left = 12;
+  const right = 12;
+  const top = 12;
+  const bottom = 26;
+  const baseY = height - bottom;
+  const plotHeight = baseY - top;
+  const max = Math.max(...monthly, 1);
+  const stepX = (width - left - right) / (monthly.length - 1);
+  const points = monthly.map((count, index) => ({
+    x: left + index * stepX,
+    y: baseY - (count / max) * plotHeight,
+    count,
+  }));
+  rekapLinePoints = points;
+  rekapLineWidth = width;
+  rekapLineTooltip.hidden = true;
+
+  rekapLineChart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  rekapLineChart.replaceChildren();
+
+  const svgNs = "http://www.w3.org/2000/svg";
+  const createSvg = (tag, attributes) => {
+    const element = document.createElementNS(svgNs, tag);
+    for (const [name, value] of Object.entries(attributes)) {
+      element.setAttribute(name, value);
+    }
+    return element;
+  };
+
+  // Garis bantu di 0%, 50%, dan 100%.
+  for (const ratio of [0, 0.5, 1]) {
+    const y = baseY - ratio * plotHeight;
+    rekapLineChart.append(
+      createSvg("line", {
+        x1: left,
+        y1: y,
+        x2: width - right,
+        y2: y,
+        class: "line-grid",
+      }),
+    );
+  }
+
+  // Kurva mulus: tiap segmen memakai kontrol horizontal di sepertiga jarak.
+  let linePath = `M ${points[0].x} ${points[0].y}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const from = points[index];
+    const to = points[index + 1];
+    const control = (to.x - from.x) / 3;
+    linePath += ` C ${from.x + control} ${from.y}, ${to.x - control} ${to.y}, ${to.x} ${to.y}`;
+  }
+  const areaPath = `${linePath} L ${points.at(-1).x} ${baseY} L ${points[0].x} ${baseY} Z`;
+
+  rekapLineChart.append(createSvg("path", { d: areaPath, class: "line-area" }));
+  rekapLineChart.append(createSvg("path", { d: linePath, class: "line-path" }));
+
+  points.forEach((point, index) => {
+    const circle = createSvg("circle", {
+      cx: point.x,
+      cy: point.y,
+      r: 3.5,
+      class: "line-point",
+    });
+    point.circle = circle;
+    rekapLineChart.append(circle);
+
+    const label = createSvg("text", {
+      x: point.x,
+      y: height - 6,
+      class: "line-label",
+      "text-anchor": "middle",
+    });
+    label.textContent = MONTH_LABELS_SHORT[index];
+    rekapLineChart.append(label);
   });
 }
+
+rekapLineChart.addEventListener("pointermove", (event) => {
+  if (!rekapLinePoints.length) return;
+  const rect = rekapLineChart.getBoundingClientRect();
+  const pointerX = ((event.clientX - rect.left) / rect.width) * rekapLineWidth;
+  let nearest = 0;
+  let smallestDistance = Infinity;
+  rekapLinePoints.forEach((point, index) => {
+    const distance = Math.abs(point.x - pointerX);
+    if (distance < smallestDistance) {
+      smallestDistance = distance;
+      nearest = index;
+    }
+  });
+
+  const point = rekapLinePoints[nearest];
+  for (const item of rekapLinePoints) item.circle?.setAttribute("r", "3.5");
+  point.circle?.setAttribute("r", "5.5");
+
+  rekapLineTooltip.textContent = `${MONTH_NAMES_FULL[nearest]}: ${point.count} task`;
+  rekapLineTooltip.style.left = `${(point.x / rekapLineWidth) * rect.width}px`;
+  rekapLineTooltip.style.top = `${(point.y / 200) * rect.height}px`;
+  rekapLineTooltip.hidden = false;
+});
+
+rekapLineChart.addEventListener("pointerleave", () => {
+  rekapLineTooltip.hidden = true;
+  for (const item of rekapLinePoints) item.circle?.setAttribute("r", "3.5");
+});
 
 function renderDashboard() {
   const today = getDateKey(new Date());
@@ -1549,10 +1645,7 @@ for (const button of periodFilters) {
 }
 
 // Tombol bulan dibuat otomatis dan hanya dipakai saat "Tahun ini" aktif.
-for (const [index, name] of [
-  "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-  "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
-].entries()) {
+for (const [index, name] of MONTH_LABELS_SHORT.entries()) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "filter-button";
@@ -1617,6 +1710,9 @@ retryButton.addEventListener("click", loadTasks);
 searchTask.addEventListener("input", () => {
   renderDashboard();
   updateControls();
+});
+window.addEventListener("resize", () => {
+  if (hasLoaded) renderRekap();
 });
 authForm.addEventListener("submit", submitAuth);
 authToggle.addEventListener("click", () => setAuthMode(!isRegistering));

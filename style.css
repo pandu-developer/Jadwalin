@@ -512,18 +512,35 @@ fieldset {
 .bar-low { background: var(--low); }
 .bar-medium { background: var(--medium); }
 .bar-high { background: var(--high); }
-.rekap-month-bars {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  align-items: end;
-  gap: 8px;
-  height: 150px;
+/* Grafik kurva tren deadline. */
+.rekap-line-wrap { position: relative; }
+.rekap-line { display: block; width: 100%; height: 200px; }
+.rekap-line-tooltip {
+  position: absolute;
+  z-index: 2;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 10px));
+  box-shadow: 0 4px 12px rgb(29 48 45 / 18%);
 }
-.month-bar-item { display: flex; height: 100%; flex-direction: column; align-items: center; gap: 6px; }
-.month-bar-track { display: flex; flex: 1; width: 100%; align-items: flex-end; justify-content: center; }
-.month-bar-fill { width: 70%; min-height: 2px; border-radius: 6px 6px 2px 2px; background: var(--accent); transition: height 300ms ease; }
-.month-bar-item span { color: var(--muted); font-size: 11px; }
-.month-bar-item strong { font-size: 11px; font-variant-numeric: tabular-nums; }
+.rekap-line-tooltip[hidden] { display: none; }
+.line-grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 4 4; }
+.line-area { fill: var(--accent-soft); opacity: 0.7; }
+.line-path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.line-point { fill: var(--white); stroke: var(--accent); stroke-width: 2.5; }
+.line-label { fill: var(--muted); font-family: inherit; font-size: 11px; }
 @media (max-width: 900px) {
   .rekap-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rekap-charts { grid-template-columns: 1fr; }
